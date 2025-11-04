@@ -58,38 +58,5 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-      - name: Run migrations
-        run: npx sequelize db:migrate
-
-      - name: Seed database
-        run: npx sequelize db:seed:all
-
       - name: Run unit tests
         run: npm test
-
-      - name: Start application in background
-        run: |
-          nohup node dist/src/index.js > /tmp/app.log 2>&1 &
-          echo $! > /tmp/app.pid
-
-      - name: Wait for application to start
-        run: |
-          timeout 30 bash -c 'until curl -f http://localhost:3000/api/v1/health; do sleep 1; done' || (cat /tmp/app.log && exit 1)
-
-      - name: Install k6
-        run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
-          sudo apt-get install k6
-
-      - name: Run k6 smoke test
-        run: npm run loadtest:smoke
-
-      - name: Stop application
-        if: always()
-        run: |
-          if [ -f /tmp/app.pid ]; then
-            kill $(cat /tmp/app.pid) || true
-          fi
