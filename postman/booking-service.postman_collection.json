@@ -1,0 +1,177 @@
+{
+  "info": {
+    "name": "Booking Service API",
+    "description": "Коллекция запросов для проверки идемпотентности (201/200/409), аутентификации (куки httpOnly), и базовых ручек.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"name\": \"Tester\"\n}"
+            },
+            "description": "Создаёт пользователя. Повторный вызов вернёт 409."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login should return 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "// httpOnly куки сохраняются в Cookie Jar Postman автоматически"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "description": "Устанавливает httpOnly куки access/refresh в Cookie Jar"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings - Idempotency",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// генерация UUID, если переменные не заданы",
+              "function uuidv4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16);});}",
+              "if(!pm.collectionVariables.get('idemKey')){ pm.collectionVariables.set('idemKey', uuidv4()); }",
+              "if(!pm.collectionVariables.get('idemNewKey')){ pm.collectionVariables.set('idemNewKey', uuidv4()); }"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "Reserve - create (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idemKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/reserve",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "reserve"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"event_id\": 1\n}" },
+            "description": "Первый запрос с Idempotency-Key — ожидаем 201"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(201);"] }
+            }
+          ]
+        },
+        {
+          "name": "Reserve - repeat same key (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idemKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/reserve",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "reserve"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"event_id\": 1\n}" },
+            "description": "Повтор с тем же ключом — ожидаем 200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(200);"] }
+            }
+          ]
+        },
+        {
+          "name": "Reserve - conflict (409, no idempotency)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/reserve",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "reserve"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"event_id\": 1\n}" },
+            "description": "Повтор без ключа — ожидаем 409 (дубликат бронирования)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(409);"] }
+            }
+          ]
+        },
+        {
+          "name": "Reserve - conflict (409, new key)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idemNewKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/reserve",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "reserve"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"event_id\": 1\n}" },
+            "description": "Повтор с новым ключом — ожидаем 409 (новая попытка того же пользователя)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.response.to.have.status(409);"] }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "email", "value": "user1@example.com" },
+    { "key": "password", "value": "user1234" },
+    { "key": "idemKey", "value": "" },
+    { "key": "idemNewKey", "value": "" }
+  ]
+}

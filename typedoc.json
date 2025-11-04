@@ -1,0 +1,25 @@
+{
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/__mocks__/**"
+  ],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeExternals": true,
+  "includeVersion": true,
+  "sort": ["source-order"],
+  "plugin": [],
+  "name": "Booking Service API Documentation",
+  "readme": "README.md",
+  "theme": "default",
+  "hideGenerator": false,
+  "categorizeByGroup": true,
+  "defaultCategory": "Other",
+  "categoryOrder": ["Controllers", "Services", "Middlewares", "Utilities", "*"]
+}
